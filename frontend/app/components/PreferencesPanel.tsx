@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react'
 
 export interface Preferences {
   age: string
-  experienceLevel: 'beginner' | 'intermediate' | 'advanced' | ''
+  experienceLevel: 'Beginner' | 'Intermediate' | 'Advanced' | ''
   monthlyBudget: string
-  riskTolerance: 'low' | 'medium' | 'high' | ''
-  primaryGoal: 'profit' | 'entertainment' | 'analysis' | ''
+  riskTolerance: 'Low' | 'Medium' | 'High' | ''
+  primaryGoal: 'Profit' | 'Entertainment' | 'Analysis' | ''
   favoriteMarkets: string
 }
 

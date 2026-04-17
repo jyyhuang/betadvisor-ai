@@ -6,6 +6,40 @@ import ResponseDisplay, { ResponseState } from './components/ResponseDisplay'
 
 const CHARS_PER_TOKEN = 4
 
+const STORAGE_KEY = 'user_preferences'
+
+const defaultPrefs = {
+  age: null,
+  experience_level: null,
+  monthly_budget: null,
+  risk_tolerance: null,
+  primary_goal: null,
+  favorite_markets: null,
+}
+
+function capitalize(val: string) {
+  return val.charAt(0).toUpperCase() + val.slice(1).toLowerCase()
+}
+
+function loadPrefs() {
+  if (typeof window === 'undefined') return defaultPrefs
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return defaultPrefs
+    const saved = JSON.parse(raw)
+    return {
+      age: saved.age ? parseInt(saved.age, 10) : null,
+      experience_level: saved.experienceLevel ? capitalize(saved.experienceLevel) : null,
+      monthly_budget: saved.monthlyBudget ? parseInt(saved.monthlyBudget, 10) : null,
+      risk_tolerance: saved.riskTolerance ? capitalize(saved.riskTolerance) : null,
+      primary_goal: saved.primaryGoal ? capitalize(saved.primaryGoal) : null,
+      favorite_markets: saved.favoriteMarkets || null,
+    }
+  } catch {
+    return defaultPrefs
+  }
+}
+
 export default function Home() {
   const [text, setText] = useState('')
   const [response, setResponse] = useState<ResponseState>({ status: 'idle' })
@@ -17,14 +51,26 @@ export default function Home() {
     if (!text.trim()) return
     setResponse({ status: 'loading' })
     try {
+      const prefs = loadPrefs()
       const res = await fetch('http://localhost:5000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ prompt: text, prefs }),
       })
       if (!res.ok) throw new Error(`Server error: ${res.status}`)
       const data = await res.json()
-      setResponse({ status: 'done', text: data.response ?? data.text ?? JSON.stringify(data) })
+      if (data.error) {
+        setResponse({ status: 'error', message: data.error })
+      } else if (data.suggestions || data.summary) {
+        const suggestionText = data.suggestions
+          ? data.suggestions.map((s: { player: string; market: string; pick: string; confidence: number; reasoning: string }) => 
+              `• ${s.player} | ${s.market}: ${s.pick} (${s.confidence}%)\n  ${s.reasoning}`
+            ).join('\n\n')
+          : ''
+        setResponse({ status: 'done', text: `${data.summary}\n\n${suggestionText}`.trim() })
+      } else {
+        setResponse({ status: 'done', text: JSON.stringify(data) })
+      }
     } catch (err) {
       setResponse({ status: 'error', message: err instanceof Error ? err.message : String(err) })
     }
@@ -35,7 +81,6 @@ export default function Home() {
       <div className="w-full max-w-2xl flex flex-col gap-6">
         <PreferencesPanel />
 
-        {/* Input */}
         <div className="flex flex-col gap-2">
           <label htmlFor="request-input" className="text-sm font-medium">
             Your question

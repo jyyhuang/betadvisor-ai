@@ -1,6 +1,8 @@
 use std::fmt;
 
-#[derive(Debug, Clone, Copy)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 enum ExperienceLevel {
     Beginner,
     Intermediate,
@@ -17,7 +19,7 @@ impl fmt::Display for ExperienceLevel {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 enum RiskTolerance {
     Low,
     Medium,
@@ -34,7 +36,7 @@ impl fmt::Display for RiskTolerance {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 enum PrimaryGoal {
     Profit,
     Entertainment,
@@ -51,11 +53,8 @@ impl fmt::Display for PrimaryGoal {
     }
 }
 
-struct RagContext {
-    documents: Vec<String>,
-}
-
-struct UserPreferences {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserPreferences {
     age: Option<u8>,
     experience_level: Option<ExperienceLevel>,
     monthly_budget: Option<u32>,
@@ -101,24 +100,37 @@ impl PromptTemplate {
     }
 
     pub fn with_system_prompt(mut self) -> Self {
+        let structured_insructions = r#"
+            Only respond with valid JSON in this exact format:
+
+            {
+                "suggestions": [
+                    {
+                        "player": "string",
+                        "market": "string",
+                        "pick": "string",
+                        "confidence": "integer",
+                        "reasoning": string
+                    }
+                ],
+                "summary": string
+            }
+            "#;
         self.system = format!(
-            "You are a certified personal betting advisor for prediction markets. Your client has the following profile: Age: {} | Experience Level: {} | Monthly Budget: {} | Risk tolerance: {} | Primary Goal: {} | Favorite Markets: {} Always respond with: (1) a brief assessment, (2) 3 actionable recommendations, (3) one risk to watch. Be concise, specific, and avoid jargon.",
+            "You are a certified personal betting advisor for prediction markets like Kalshi and Polymarket. Your client has the following profile: Age: {} | Experience Level: {} | Monthly Budget: {} | Risk tolerance: {} | Primary Goal: {} | Favorite Markets: {}\n\n{}",
             UserPreferences::format_option(&self.prefs.age),
             UserPreferences::format_option(&self.prefs.experience_level),
             UserPreferences::format_option(&self.prefs.monthly_budget),
             UserPreferences::format_option(&self.prefs.risk_tolerance),
             UserPreferences::format_option(&self.prefs.primary_goal),
             UserPreferences::format_option(&self.prefs.favorite_markets),
+            structured_insructions
         );
         self
     }
 
-    pub fn with_user_prompt(mut self, request: &str, ctx: RagContext) -> Self {
-        let context_str = ctx.documents.join("\n");
-        self.user = format!(
-            "\nUser request: {}\n\nRelevant context from knowledge base:\n{}",
-            request, context_str
-        );
+    pub fn with_user_prompt(mut self, request: &str) -> Self {
+        self.user = format!("\nUser request: {}\n", request);
         self
     }
 }
