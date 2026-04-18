@@ -2,11 +2,17 @@
 
 import { Fragment } from 'react'
 
-export type ResponseState =
+export interface Message {
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: number
+}
+
+export type ConversationState =
   | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'error'; message: string }
-  | { status: 'done'; text: string }
+  | { status: 'done'; messages: Message[] }
 
 type Block =
   | { type: 'h2'; text: string }
@@ -155,46 +161,110 @@ function RenderBlocks({ text }: { text: string }) {
   )
 }
 
-export default function ResponseDisplay({ state }: { state: ResponseState }) {
-  if (state.status === 'idle') return null
+function MessagePanel({ message, index, total }: { message: Message; index: number; total: number }) {
+  const isUser = message.role === 'user'
+  const isAssistant = message.role === 'assistant'
+  
+  const version = isAssistant ? Math.floor((index + 1) / 2) : null
+  const isInitial = version === 1
 
   return (
-    <section className="w-full rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-      <div className="flex items-center gap-2 border-b border-gray-100 px-5 py-3 dark:border-gray-800">
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-          Analysis &amp; Recommendation
-        </span>
-        {state.status === 'loading' && (
-          <span className="ml-auto flex items-center gap-1.5 text-xs text-blue-500">
-            <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" strokeLinecap="round"/>
-            </svg>
-            Thinking…
+    <div className={`rounded-lg border ${isUser ? 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-900/20' : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900'}`}>
+      <div className={`flex items-center gap-2 border-b px-4 py-2 ${isUser ? 'border-blue-100 dark:border-blue-800' : 'border-gray-100 dark:border-gray-800'}`}>
+        {isUser ? (
+          <>
+            <span className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+              You
+            </span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              · {message.content.slice(0, 50)}{message.content.length > 50 ? '...' : ''}
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              {isInitial ? 'Initial Response' : `Refinement v${version}`}
+            </span>
+          </>
+        )}
+      </div>
+      <div className="px-4 py-3">
+        {isUser ? (
+          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{message.content}</p>
+        ) : (
+          <RenderBlocks text={message.content} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function ResponseDisplay({ 
+  state, 
+  history = [],
+  onClear,
+}: { 
+  state: ConversationState
+  history?: Message[]
+  onClear?: () => void
+}) {
+  if (state.status === 'idle' && history.length === 0) return null
+
+  const displayHistory = state.status === 'done' && state.messages 
+    ? state.messages 
+    : history
+
+  return (
+    <section className="w-full flex flex-col gap-4">
+      {displayHistory.length > 0 && (
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            Conversation ({displayHistory.length} message{displayHistory.length !== 1 ? 's' : ''})
           </span>
-        )}
-        {state.status === 'done' && (
-          <span className="ml-auto text-xs text-green-600 dark:text-green-400">Done</span>
-        )}
-        {state.status === 'error' && (
-          <span className="ml-auto text-xs text-red-500">Error</span>
-        )}
-      </div>
+          {onClear && displayHistory.length > 0 && (
+            <button
+              onClick={onClear}
+              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+      )}
 
-      <div className="px-5 py-4">
-        {state.status === 'loading' && (
-          <div className="flex flex-col gap-2.5">
-            {[80, 60, 90, 50].map((w, i) => (
-              <div key={i} className={`h-3 rounded bg-gray-100 dark:bg-gray-800 animate-pulse`} style={{ width: `${w}%` }} />
-            ))}
+      {displayHistory.map((msg, idx) => (
+        <MessagePanel 
+          key={msg.timestamp} 
+          message={msg} 
+          index={idx}
+          total={displayHistory.length}
+        />
+      ))}
+
+      {state.status === 'loading' && (
+        <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+          <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2 dark:border-gray-800">
+            <span className="text-xs font-semibold uppercase tracking-wide text-blue-500">
+              Thinking…
+            </span>
           </div>
-        )}
+          <div className="px-4 py-4">
+            <div className="flex flex-col gap-2.5">
+              {[80, 60, 90, 50].map((w, i) => (
+                <div key={i} className={`h-3 rounded bg-gray-100 dark:bg-gray-800 animate-pulse`} style={{ width: `${w}%` }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
-        {state.status === 'error' && (
-          <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>
-        )}
-
-        {state.status === 'done' && <RenderBlocks text={state.text} />}
-      </div>
+      {state.status === 'error' && (
+        <div className="rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
+          <div className="px-4 py-3">
+            <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

@@ -3,10 +3,9 @@ mod web_search;
 
 use axum::{
     Json, Router,
-    extract::ws::{Message, WebSocket, WebSocketUpgrade},
     http::StatusCode,
     response::IntoResponse,
-    routing::{get, post},
+    routing::{post},
 };
 use dotenv::dotenv;
 use rig::{
@@ -17,13 +16,14 @@ use rig::{
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-use crate::prompts::{PromptTemplate, UserPreferences};
+use crate::prompts::{PromptTemplate, UserPreferences, ChatMessage};
 use crate::web_search::WebSearch;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ChatRequest {
     prompt: String,
     prefs: UserPreferences,
+    history: Vec<ChatMessage>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -45,8 +45,7 @@ struct ChatResponse {
 async fn main() {
     dotenv().ok();
     let app = Router::new()
-        .route("/chat", post(chat))
-        .route("/ws", get(ws_handler));
+        .route("/chat", post(chat));
     let listener = tokio::net::TcpListener::bind("0.0.0.0:5000").await.unwrap();
 
     axum::serve(listener, app)
@@ -54,18 +53,12 @@ async fn main() {
         .expect("failed to start server");
 }
 
-async fn ws_handler(ws: WebSocketUpgrade) -> impl IntoResponse {
-    ws.on_upgrade(handle_socket);
-}
-
-async fn handle_socket(mut socket: WebSocket){
-}
-
 async fn chat(Json(payload): Json<ChatRequest>) -> impl IntoResponse {
     let client = openai::Client::from_env();
 
     let built = PromptTemplate::new(payload.prefs)
         .with_system_prompt()
+        .with_conversation_history(&payload.history)
         .with_user_prompt(&payload.prompt)
         .build();
 

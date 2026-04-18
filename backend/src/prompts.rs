@@ -72,6 +72,12 @@ impl UserPreferences {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
+}
+
 pub struct BuiltPrompt {
     pub system: String,
     pub user: String,
@@ -117,7 +123,7 @@ impl PromptTemplate {
             }
             "#;
         self.system = format!(
-            "You are a certified personal betting advisor for prediction markets like Kalshi and Polymarket. Your client has the following profile: Age: {} | Experience Level: {} | Monthly Budget: {} | Risk tolerance: {} | Primary Goal: {} | Favorite Markets: {}\n\n{}",
+            "You are a certified personal betting advisor for prediction markets like Kalshi and Polymarket. Your client has the following profile: Age: {} | Experience Level: {} | Monthly Budget: {} | Risk tolerance: {} | Primary Goal: {} | Favorite Markets: {}\n. Always call the web search tool before outputting a response.\n\n{}",
             UserPreferences::format_option(&self.prefs.age),
             UserPreferences::format_option(&self.prefs.experience_level),
             UserPreferences::format_option(&self.prefs.monthly_budget),
@@ -131,6 +137,26 @@ impl PromptTemplate {
 
     pub fn with_user_prompt(mut self, request: &str) -> Self {
         self.user = format!("\nUser request: {}\n", request);
+        self
+    }
+
+    pub fn with_conversation_history(mut self, history: &[ChatMessage]) -> Self {
+        if history.is_empty() {
+            return self;
+        }
+
+        let mut context = String::from("\n\nPrevious conversation:\n");
+        for msg in history {
+            let label = if msg.role == "user" {
+                "User"
+            } else {
+                "Assistant"
+            };
+            context.push_str(&format!("{}: {}\n", label, msg.content));
+        }
+        context.push_str("\n");
+
+        self.user = format!("{}{}", context, self.user);
         self
     }
 }
