@@ -210,8 +210,7 @@ export default function Home() {
 
     try {
       const prefs = loadPrefs()
-      const currentSession = sessions.find(s => s.id === currentSessionId)
-      const currentHistory = currentSession?.messages || []
+      const currentHistory = [...(sessions.find(s => s.id === currentSessionId)?.messages || []), userMessage]
       
       const res = await fetch('http://localhost:5000/chat', {
         method: 'POST',
