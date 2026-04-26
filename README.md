@@ -1,6 +1,6 @@
 # BetAdvisor AI
 
-An AI-powered betting and prediction market advisor that provides personalized bet suggestions based on user preferences, current market data, and real-time web search.
+An AI-powered betting and prediction market advisor that provides personalized bet suggestions based on user preferences and real-time web search.
 
 ---
 
